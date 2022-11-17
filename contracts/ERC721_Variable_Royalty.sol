@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Fixed supply ,Common uri , Royalty
+// Variable supply ,Common uri , Royalty
 pragma solidity ^0.8.16;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract ERC721FixedSupply is ERC721,ERC2981, AccessControl {
+contract ERC721_Variable_Royalty is ERC721,ERC2981, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     using Counters for Counters.Counter;

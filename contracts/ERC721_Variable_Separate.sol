@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Fixed supply ,Separate uri
+// Variable supply ,Separate uri
 pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract ERC721Collection_1 is ERC721, AccessControl {
+contract ERC721_Variable_Separate is ERC721, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     using Counters for Counters.Counter;
@@ -17,7 +17,6 @@ contract ERC721Collection_1 is ERC721, AccessControl {
 
     address TREASURY;
     string public baseURI;
-    bool public revealed;
     mapping(uint256 => string) private _tokenURI;
 
     constructor(

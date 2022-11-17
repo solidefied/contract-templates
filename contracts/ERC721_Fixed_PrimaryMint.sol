@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract ERC721Collection_1 is ERC721, AccessControl {
+contract ERC721_Fixed_PrimartMint is ERC721, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     using Counters for Counters.Counter;
@@ -17,7 +17,6 @@ contract ERC721Collection_1 is ERC721, AccessControl {
 
     address TREASURY;
     string public baseURI;
-    bool public revealed;
     uint public TOKEN_SUPPLY;
     mapping(uint256 => string) private _tokenURI;
 
