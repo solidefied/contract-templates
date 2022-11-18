@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ERC721 Fixed Supply - Comman URI", () => {
+describe("ERC721 Fixed Supply - BulkMint", () => {
     var acc1;
     var acc2;
     var acc3;
@@ -15,8 +15,8 @@ describe("ERC721 Fixed Supply - Comman URI", () => {
 
     before("Initial Declaration", async () => {
         [acc1, acc2, acc3, acc4, acc5] = await ethers.getSigners();
-        const ContractDeploy = await ethers.getContractFactory("ERC721_Fixed_Common");
-        const NFTContract = await ContractDeploy.deploy(acc1.address, "Test.ipfs://afavbvwvsvsv", 4, "FixedCommon", "FC");
+        const ContractDeploy = await ethers.getContractFactory("ERC721_Fixed_BulkMint");
+        const NFTContract = await ContractDeploy.deploy(acc1.address, "Test.ipfs://afavbvwvsvsv", 10, "FixedCommon", "FC");
         nft = await NFTContract.deployed();
         MINTER_ROLE = await nft.MINTER_ROLE();
         const tokenContract = await ethers.getContractFactory("BaseERC20");
@@ -40,22 +40,27 @@ describe("ERC721 Fixed Supply - Comman URI", () => {
         expect(await nft.hasRole(MINTER_ROLE, acc2.address)).to.equal(false);
     });
 
-    it("Check Total supply is 4 or not", async () => {
-        expect(await nft.TOKEN_SUPPLY()).to.equal(4);
+    it("Check Total supply is 10 or not", async () => {
+        expect(await nft.TOKEN_SUPPLY()).to.equal(10);
     });
 
-    describe("Mint NFT Token for acc2", () => {
+    describe("Mint NFT Token for acc2,acc4", () => {
         before("minter func", async () => {
-            const mintTokenTxn = await nft.connect(acc1).mintToken(acc2.address);
+            const mintTokenTxn = await nft.connect(acc1).bulkMint([acc2.address, acc4.address], [5, 5]);
             await mintTokenTxn.wait();
         });
 
         it("Check token is minted or not", async () => {
-            expect(await nft.ownerOf(0)).to.equal(acc2.address);
+            expect(await nft.balanceOf(acc2.address)).to.equal(5);
+            expect(await nft.balanceOf(acc4.address)).to.equal(5);
         });
 
         it("Error should generated error when passed address is Null", async () => {
-            await expect(nft.connect(acc1).mintToken(zeroAdd)).to.be.revertedWith("ERC721: mint to the zero address");
+            await expect(nft.connect(acc1).mintToken(zeroAdd)).to.be.revertedWith("Invalid Address");
+        });
+
+        it("Error should generated error when token supply limit reached", async () => {
+            await expect(nft.connect(acc1).mintToken(acc2.address)).to.be.revertedWith("Limit Reached");
         });
 
         it("Error:Contract should give error for unauthorized txn by acc3", async () => {
@@ -102,12 +107,12 @@ describe("ERC721 Fixed Supply - Comman URI", () => {
 
     describe("Change Total supply", () => {
         before("set token supply func", async () => {
-            const SetTokenSupplyTxn = await nft.connect(acc1).setTokenSupply(5);
+            const SetTokenSupplyTxn = await nft.connect(acc1).setTokenSupply(15);
             await SetTokenSupplyTxn.wait();
         });
 
         it("Check Total supply is 5 or not", async () => {
-            expect(await nft.TOKEN_SUPPLY()).to.equal(5);
+            expect(await nft.TOKEN_SUPPLY()).to.equal(15);
         });
 
         it("Error:Contract should give error for unauthorized txn by acc3", async () => {
@@ -181,7 +186,7 @@ describe("ERC721 Fixed Supply - Comman URI", () => {
             const WithDrawTokenTxn = await nft.connect(acc1).withdrawAccidentalToken(token.address);
             await WithDrawTokenTxn.wait();
         });
-
+        
         it("Test that accidentally token should be transfered to treasuryAddress", async () => {
             expect(await token.balanceOf(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
         });
@@ -189,9 +194,10 @@ describe("ERC721 Fixed Supply - Comman URI", () => {
         it("Error:Contract should give error for token balance is zero", async () => {
             await expect(nft.connect(acc1).withdrawAccidentalToken(token.address)).to.be.revertedWith("!BALANCE");
         });
-
+        
         it("Error:Contract should give error for unauthorized txn by acc3", async () => {
             await expect(nft.connect(acc3).withdrawAccidentalToken(token.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
         });
     })
+
 })

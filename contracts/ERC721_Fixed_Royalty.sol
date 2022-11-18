@@ -30,6 +30,7 @@ contract ERC721_Fixed_Royalty is ERC721,ERC2981, AccessControl {
         TREASURY = treasury;
         _setDefaultRoyalty(TREASURY, _royaltyRate);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
         TOKEN_SUPPLY = _tokenSupply;
         baseURI = _baseUri;
     }

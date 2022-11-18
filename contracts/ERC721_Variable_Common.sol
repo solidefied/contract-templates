@@ -25,6 +25,7 @@ contract ERC721_Variable_Common is ERC721, AccessControl {
     ) ERC721(_collectionName, _collectionSymbol) {
         TREASURY = treasury;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
         baseURI = _baseUri;
     }
 

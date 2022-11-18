@@ -28,6 +28,7 @@ contract ERC721_Variable_Royalty is ERC721,ERC2981, AccessControl {
         TREASURY = treasury;
         _setDefaultRoyalty(TREASURY, _royaltyRate);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
         baseURI = _baseUri;
     }
 

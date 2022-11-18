@@ -27,19 +27,34 @@ contract ERC721_Fixed_BulkMint is ERC721, AccessControl {
     ) ERC721(_collectionName, _collectionSymbol) {
         TREASURY = treasury;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
         TOKEN_SUPPLY = _tokenSupply;
         baseURI = _baseUri;
     }
-  
-    function mintToken(address[] memory to) external onlyRole(MINTER_ROLE) {
-        require(to.length + _tokenIdCounter.current() < TOKEN_SUPPLY, "Insufficient Token");
-        for(uint i = 0 ; i < to.length ;i++)
-        {
-            uint256 tokenId = _tokenIdCounter.current();
-            _tokenIdCounter.increment();
-            _safeMint(to[i], tokenId);
-        }       
-    } 
+
+    function bulkMint(address[] memory to, uint256[] memory _quantity)
+        external
+        onlyRole(MINTER_ROLE)
+    {
+        require(_quantity.length == to.length, "Invalid Data");
+        for (uint i = 0; i < to.length; i++) {
+            require(to[i] != address(0), "Invalid Address");
+            for (uint j = 0; j < _quantity[i]; j++) {
+                uint256 tokenId = _tokenIdCounter.current();
+                require(tokenId < TOKEN_SUPPLY, "Limit Reached");
+                _tokenIdCounter.increment();
+                _safeMint(to[i], tokenId);
+            }
+        }
+    }
+
+    function mintToken(address to) external onlyRole(MINTER_ROLE) {
+        uint256 tokenId = _tokenIdCounter.current();
+        require(to != address(0), "Invalid Address");
+        require(tokenId < TOKEN_SUPPLY, "Limit Reached");
+        _tokenIdCounter.increment();
+        _safeMint(to, tokenId);
+    }
 
     // to set or update total token supply
     function setTokenSupply(uint256 _tokenSupply)
