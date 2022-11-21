@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ERC721 Fixed Supply - BulkMint", () => {
+describe("ERC721 Variable Supply - BulkMint", () => {
     var acc1;
     var acc2;
     var acc3;
@@ -15,8 +15,8 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
 
     before("Initial Declaration", async () => {
         [acc1, acc2, acc3, acc4, acc5] = await ethers.getSigners();
-        const ContractDeploy = await ethers.getContractFactory("ERC721_Fixed_BulkMint");
-        const NFTContract = await ContractDeploy.deploy(acc1.address, "Test.ipfs://afavbvwvsvsv", 10, "FixedCommon", "FC");
+        const ContractDeploy = await ethers.getContractFactory("ERC721_Variable_BulkMint");
+        const NFTContract = await ContractDeploy.deploy(acc5.address, "Test.ipfs://afavbvwvsvsv", "VariableBulk", "VB");
         nft = await NFTContract.deployed();
         MINTER_ROLE = await nft.MINTER_ROLE();
         const tokenContract = await ethers.getContractFactory("BaseERC20");
@@ -28,8 +28,8 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
 
     it("Check that inital values is same as declared", async () => {
         expect(await nft.baseURI()).to.equal("Test.ipfs://afavbvwvsvsv");
-        expect(await nft.name()).to.equal("FixedCommon");
-        expect(await nft.symbol()).to.equal("FC");
+        expect(await nft.name()).to.equal("VariableBulk");
+        expect(await nft.symbol()).to.equal("VB");
     })
 
     it("Check that acc1 has a minter role", async () => {
@@ -38,10 +38,6 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
 
     it("Check that acc2 has not a minter role", async () => {
         expect(await nft.hasRole(MINTER_ROLE, acc2.address)).to.equal(false);
-    });
-
-    it("Check Total supply is 10 or not", async () => {
-        expect(await nft.TOKEN_SUPPLY()).to.equal(10);
     });
 
     describe("Mint NFT Token for acc2,acc4", () => {
@@ -55,14 +51,14 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
             expect(await nft.balanceOf(acc4.address)).to.equal(5);
         });
 
-        it("Error should generated error when passed address is Null", async () => {
-            await expect(nft.connect(acc1).bulkMint([zeroAdd],[7])).to.be.revertedWith("Invalid Address");
+        it("Error:Contract should generate error when passed address is Null", async () => {
+            await expect(nft.connect(acc1).bulkMint([zeroAdd],[0])).to.be.revertedWith("Invalid Address");
         });
 
-        it("Error should generated error when token supply limit reached", async () => {
-            await expect(nft.connect(acc1).bulkMint([acc2.address],[2])).to.be.revertedWith("Limit Reached");
+        it("Error:Contract should generate error when passed data is invalid", async () => {
+            await expect(nft.connect(acc1).bulkMint([acc3.address,acc4.address],[10])).to.be.revertedWith("Invalid Data");
         });
-
+        
         it("Error:Contract should give error for unauthorized txn by acc3", async () => {
             await expect(nft.connect(acc3).mintToken(acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${MINTER_ROLE}`);
         });
@@ -102,21 +98,6 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
 
         it("Check token is transfered or not", async () => {
             expect(await nft.ownerOf(0)).to.equal(acc3.address);
-        });
-    });
-
-    describe("Change Total supply", () => {
-        before("set token supply func", async () => {
-            const SetTokenSupplyTxn = await nft.connect(acc1).setTokenSupply(15);
-            await SetTokenSupplyTxn.wait();
-        });
-
-        it("Check Total supply is 5 or not", async () => {
-            expect(await nft.TOKEN_SUPPLY()).to.equal(15);
-        });
-
-        it("Error:Contract should give error for unauthorized txn by acc3", async () => {
-            await expect(nft.connect(acc3).setTokenSupply(260)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
         });
     });
 

@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("ERC721 Fixed Supply - BulkMint", () => {
+describe("ERC721 Fixed Supply - Reveal Phase", () => {
     var acc1;
     var acc2;
     var acc3;
@@ -15,8 +15,8 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
 
     before("Initial Declaration", async () => {
         [acc1, acc2, acc3, acc4, acc5] = await ethers.getSigners();
-        const ContractDeploy = await ethers.getContractFactory("ERC721_Fixed_BulkMint");
-        const NFTContract = await ContractDeploy.deploy(acc1.address, "Test.ipfs://afavbvwvsvsv", 10, "FixedCommon", "FC");
+        const ContractDeploy = await ethers.getContractFactory("ERC721_Fixed_Reveal");
+        const NFTContract = await ContractDeploy.deploy(acc1.address, "Test.ipfs://afavbvwvsvsv", 4, "FixedCommon", "FC");
         nft = await NFTContract.deployed();
         MINTER_ROLE = await nft.MINTER_ROLE();
         const tokenContract = await ethers.getContractFactory("BaseERC20");
@@ -40,31 +40,46 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
         expect(await nft.hasRole(MINTER_ROLE, acc2.address)).to.equal(false);
     });
 
-    it("Check Total supply is 10 or not", async () => {
-        expect(await nft.TOKEN_SUPPLY()).to.equal(10);
+    it("Check Total supply is 4 or not", async () => {
+        expect(await nft.TOKEN_SUPPLY()).to.equal(4);
     });
 
-    describe("Mint NFT Token for acc2,acc4", () => {
+    describe("Mint NFT Token for acc2", () => {
         before("minter func", async () => {
-            const mintTokenTxn = await nft.connect(acc1).bulkMint([acc2.address, acc4.address], [5, 5]);
+            const mintTokenTxn = await nft.connect(acc1).mintToken(acc2.address, "test1.com");
             await mintTokenTxn.wait();
         });
 
         it("Check token is minted or not", async () => {
-            expect(await nft.balanceOf(acc2.address)).to.equal(5);
-            expect(await nft.balanceOf(acc4.address)).to.equal(5);
+            expect(await nft.ownerOf(0)).to.equal(acc2.address);
+            expect(await nft.tokenURI(0)).to.equal("Test.ipfs://afavbvwvsvsv");
         });
 
         it("Error should generated error when passed address is Null", async () => {
-            await expect(nft.connect(acc1).bulkMint([zeroAdd],[7])).to.be.revertedWith("Invalid Address");
-        });
-
-        it("Error should generated error when token supply limit reached", async () => {
-            await expect(nft.connect(acc1).bulkMint([acc2.address],[2])).to.be.revertedWith("Limit Reached");
+            await expect(nft.connect(acc1).mintToken(zeroAdd, "test1.com")).to.be.revertedWith("ERC721: mint to the zero address");
         });
 
         it("Error:Contract should give error for unauthorized txn by acc3", async () => {
-            await expect(nft.connect(acc3).mintToken(acc2.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${MINTER_ROLE}`);
+            await expect(nft.connect(acc3).mintToken(acc2.address, "test1.com")).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${MINTER_ROLE}`);
+        });
+    })
+
+    describe("Reveal Minted token's URI", () => {
+        before("minter func", async () => {
+            const revealURITxn = await nft.connect(acc1).setReveal(true);
+            await revealURITxn.wait();
+        });
+
+        it("Check token uri should be 'test1.com'", async () => {
+            expect(await nft.tokenURI(0)).to.equal("test1.com");
+        });
+
+        it("Error should generated when passed arugment is same as reveal state", async () => {
+            await expect(nft.connect(acc1).setReveal(true)).to.be.revertedWith("setReveal: Value should not be same");
+        });
+
+        it("Error:Contract should give errguor for unauthorized txn by acc3", async () => {
+            await expect(nft.connect(acc3).setReveal(true)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
         });
     })
 
@@ -107,12 +122,12 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
 
     describe("Change Total supply", () => {
         before("set token supply func", async () => {
-            const SetTokenSupplyTxn = await nft.connect(acc1).setTokenSupply(15);
+            const SetTokenSupplyTxn = await nft.connect(acc1).setTokenSupply(5);
             await SetTokenSupplyTxn.wait();
         });
 
         it("Check Total supply is 5 or not", async () => {
-            expect(await nft.TOKEN_SUPPLY()).to.equal(15);
+            expect(await nft.TOKEN_SUPPLY()).to.equal(5);
         });
 
         it("Error:Contract should give error for unauthorized txn by acc3", async () => {
@@ -186,7 +201,7 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
             const WithDrawTokenTxn = await nft.connect(acc1).withdrawAccidentalToken(token.address);
             await WithDrawTokenTxn.wait();
         });
-        
+
         it("Test that accidentally token should be transfered to treasuryAddress", async () => {
             expect(await token.balanceOf(acc5.address)).to.equal(ethers.BigNumber.from(10).pow(18).mul(1000));
         });
@@ -194,10 +209,9 @@ describe("ERC721 Fixed Supply - BulkMint", () => {
         it("Error:Contract should give error for token balance is zero", async () => {
             await expect(nft.connect(acc1).withdrawAccidentalToken(token.address)).to.be.revertedWith("!BALANCE");
         });
-        
+
         it("Error:Contract should give error for unauthorized txn by acc3", async () => {
             await expect(nft.connect(acc3).withdrawAccidentalToken(token.address)).to.be.revertedWith(`AccessControl: account ${acc3.address.toLowerCase()} is missing role ${zeroHex}`);
         });
     })
-
 })

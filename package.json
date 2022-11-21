@@ -7,5 +7,17 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.8.0",
     "ethers": "^5.7.2"
+  },
+  "scripts": {
+    "test": "hardhat test",
+    "Fixed_Bulkmint": "hardhat test test/ERC721_Fixed_Bulkmint.js",
+    "Fixed_Common": "hardhat test test/ERC721_Fixed_Common.js",
+    "Fixed_Reveal": "hardhat test test/ERC721_Fixed_Reveal.js",
+    "Fixed_Royalty": "hardhat test test/ERC721_Fixed_Royalty.js",
+    "Fixed_Separate": "hardhat test test/ERC721_Fixed_Separate.js",
+    "Variable_Bulkmint": "hardhat test test/ERC721_Variable_Bulkmint.js",
+    "Variable_Common": "hardhat test test/ERC721_Variable_Common.js",
+    "Variable_Royalty": "hardhat test test/ERC721_Variable_Royalty.js",
+    "Variable_Separate": "hardhat test test/ERC721_Variable_Separate.js"
   }
 }
