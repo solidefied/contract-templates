@@ -1,146 +1,237 @@
 // SPDX-License-Identifier: MIT
-// Fixed supply ,Separate uri
-pragma solidity ^0.8.16;
+pragma solidity 0.8.17;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract ERC721_Fixed_PrimartMint is ERC721, AccessControl {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+interface INonStandardERC20 {
+    function totalSupply() external view returns (uint256);
 
-    using Counters for Counters.Counter;
-    using Strings for uint256;
-    Counters.Counter private _tokenIdCounter;
+    function balanceOf(address owner) external view returns (uint256 balance);
 
-    address TREASURY;
-    string public baseURI;
-    uint public TOKEN_SUPPLY;
-    mapping(uint256 => string) private _tokenURI;
+    /// !!! NOTICE !!! transfer does not return a value, in violation of the ERC-20 specification
+    function transfer(address dst, uint256 amount) external;
+
+    /// !!! NOTICE !!! transferFrom does not return a value, in violation of the ERC-20 specification
+    function transferFrom(
+        address src,
+        address dst,
+        uint256 amount
+    ) external;
+
+    function approve(address spender, uint256 amount)
+        external
+        returns (bool success);
+
+    function allowance(address owner, address spender)
+        external
+        view
+        returns (uint256 remaining);
+
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 amount
+    );
+}
+
+interface IERC721 {
+    function mint(address _receiver) external;
+
+    function bulkMint(address _receiver,uint256 _quantity) external;
+
+    function balanceOf(address _owner) external view returns (uint256 balance);
+}
+
+contract NFTSale is ReentrancyGuard, Ownable, Pausable {
+    bool public iswhitelist;
+    uint256 public CENTS = 10**4;
+    uint256 public userMaxAllowance;
+    uint256 public hardcap;
+    uint256 public priceInUSD;
+    address public nftAddress;
+    address public TREASURY = msg.sender; //replace in prod
+    address public USDT;
+    bytes32 public root;
 
     constructor(
-        address treasury,
-        string memory _baseUri,
-        uint256 _tokenSupply,
-        string memory _collectionName,
-        string memory _collectionSymbol
-    ) ERC721(_collectionName, _collectionSymbol) {
-        TREASURY = treasury;
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(MINTER_ROLE, msg.sender);
-        TOKEN_SUPPLY = _tokenSupply;
-        baseURI = _baseUri;
+        // uint256 _priceInWei,
+        uint256 _hardcap,
+        uint256 _userMaxAllowance,
+        uint256 _priceInUSD,
+        address _nftAddress,
+        address _usdtAddress,
+        bytes32 _root
+    ) {
+        // priceInETH = _priceInWei;
+        hardcap = _hardcap;
+        userMaxAllowance = _userMaxAllowance;
+        priceInUSD = _priceInUSD * CENTS;
+        nftAddress = _nftAddress;
+        USDT = _usdtAddress;
+        root = _root;
     }
 
-    function mintToken(address to, string memory _uri)
-        external
-    {
-        uint256 tokenId = _tokenIdCounter.current();
-        require(tokenId < TOKEN_SUPPLY, "Limit Reached");
-        _tokenIdCounter.increment();
-        _safeMint(to, tokenId);
-        _tokenURI[tokenId] = _uri;
+    modifier isWhitelisted(bytes32[] memory proof) {
+        if (iswhitelist) {
+            require(
+                isValid(proof, keccak256(abi.encodePacked(msg.sender))),
+                "Unauthorized"
+            );
+        }
+        _;
     }
 
-    // to set or update total token supply
-    function setTokenSupply(uint256 _tokenSupply)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        TOKEN_SUPPLY = _tokenSupply;
-    }
-
-    // to set or update the baseUri.
-    function setBaseURI(string memory _uri)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        baseURI = _uri;
-    }
-
-    function setTreasury(address treasury)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        TREASURY = treasury;
-    }
-
-    function _baseURI() internal view virtual override returns (string memory) {
-        return baseURI;
-    }
-
-    function setMinterRole(address _minter)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        _grantRole(MINTER_ROLE, _minter);
-    }
-
-    function setTokenURI(uint _tokenId, string memory _uri)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        require(
-            _exists(_tokenId),
-            "ERC721Metadata: URI query for nonexistent token"
-        );
-        _tokenURI[_tokenId] = _uri;
-    }
-
-    //to withdraw native currency(if any)
-    function withdrawAccidentalETH()
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        returns (bool)
-    {
-        (bool success, ) = TREASURY.call{value: getBalance()}("");
-        return success;
-    }
-
-    function withdrawAccidentalToken(address _erc20Token)
-        public
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        // In case of Non standard ERC20 tokens change this function
-        require(IERC20(_erc20Token).balanceOf(address(this)) > 0, "!BALANCE");
-        IERC20(_erc20Token).transfer(
-            TREASURY,
-            IERC20(_erc20Token).balanceOf(address(this))
-        );
-    }
-
-    function getBalance() public view returns (uint) {
-        return address(this).balance;
-    }
-
-    // Every marketplace looks for this function to read the uri of a token
-    function tokenURI(uint256 _tokenId)
+    function isValid(bytes32[] memory proof, bytes32 leaf)
         public
         view
-        virtual
-        override
-        returns (string memory)
-    {
-        require(
-            _exists(_tokenId),
-            "ERC721Metadata: URI query for nonexistent token"
-        );
-        return _tokenURI[_tokenId];
-    }
-
-    //total token minted
-    function tokenMinted() public view returns (uint) {
-        return _tokenIdCounter.current();
-    }
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, AccessControl)
         returns (bool)
     {
-        return super.supportsInterface(interfaceId);
+        return MerkleProof.verify(proof, root, leaf);
     }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        TREASURY = _treasury;
+    }
+
+    //Only Testing
+    function setMerkleRoot(bytes32 _root) external onlyOwner {
+        root = _root;
+    }
+
+    // function setPriceETH(uint256 _priceInWei) public onlyOwner {
+    //     priceInETH = _priceInWei;
+    // }
+
+    function setPriceUSD(uint256 _priceInUSD) public onlyOwner {
+        priceInUSD = _priceInUSD * CENTS;
+    }
+
+    function setWhitelist(bool _status) external onlyOwner {
+        iswhitelist = _status;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function setUserAllowance(uint256 _userMaxAllowance) public onlyOwner{
+        userMaxAllowance = _userMaxAllowance;
+    }
+
+    function setHardcap(uint256 _hardcap) public {
+        hardcap = _hardcap;
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    function totalMinted() public view  returns (uint256)
+    {
+      return (INonStandardERC20(USDT).balanceOf(address(this)) / (priceInUSD * 10**6 / CENTS));
+    }
+
+
+    function buyNFTWithToken( bytes32[] memory proof ,uint256 quantity)
+        external
+        whenNotPaused
+        nonReentrant
+        isWhitelisted(proof)
+    {
+        uint256 amount = (priceInUSD * 10**6) / CENTS;        
+        require((((amount * quantity) + INonStandardERC20(USDT).balanceOf(address(this))) / amount ) <= hardcap ,"Exceed hardcap amount");
+        require((quantity + IERC721(nftAddress).balanceOf(msg.sender))  <= userMaxAllowance,"Exceed allowance");
+        _transferTokensIn(USDT, msg.sender, amount * quantity);
+        IERC721(nftAddress).bulkMint(msg.sender,quantity);
+    }
+
+    function _transferTokensIn(
+        address tokenAddress,
+        address from,
+        uint256 amount
+    ) private {
+        if (USDT == tokenAddress) {
+            INonStandardERC20 _token = INonStandardERC20(tokenAddress);
+            _token.transferFrom(from, address(this), amount);
+            bool success;
+            assembly {
+                switch returndatasize()
+                case 0 {
+                    // This is a non-standard ERC-20
+                    success := not(0) // set success to true
+                }
+                case 32 {
+                    // This is a compliant ERC-20
+                    returndatacopy(0, 0, 32)
+                    success := mload(0) // Set success = returndata of external call
+                }
+                default {
+                    // This is an excessively non-compliant ERC-20, revert.
+                    revert(0, 0)
+                }
+            }
+            require(success, "Transfer failed");
+        } 
+    }
+
+    function _transferTokensOut(
+        address tokenAddress,
+        address to,
+        uint256 amount
+    ) private {
+        if (USDT == tokenAddress) {
+            INonStandardERC20 _token = INonStandardERC20(tokenAddress);
+            _token.transfer(to, amount);
+            bool success;
+            assembly {
+                switch returndatasize()
+                case 0 {
+                    // This is a non-standard ERC-20
+                    success := not(0) // set success to true
+                }
+                case 32 {
+                    // This is a compliant ERC-20
+                    returndatacopy(0, 0, 32)
+                    success := mload(0) // Set success = returndata of external call
+                }
+                default {
+                    // This is an excessively non-compliant ERC-20, revert.
+                    revert(0, 0)
+                }
+            }
+            require(success, "Transfer failed");
+        } 
+    }
+
+    // function buyNFTWithETH(bytes32[] memory proof)
+    //     external
+    //     payable
+    //     whenNotPaused
+    //     nonReentrant
+    //     isWhitelisted(proof)
+    // {
+    //     require(msg.value >= priceInETH, "Incorrect amount");
+    //     IERC721(nftAddress).mint(msg.sender);
+    // }
+
+    function withdrawTokens(uint256 _amount)
+        external
+        onlyOwner
+        nonReentrant
+        whenPaused
+    {
+        _transferTokensOut(USDT, TREASURY, _amount);
+    }
+
+    // function withdrawETH() external onlyOwner nonReentrant whenPaused {
+    //     require(address(this).balance > 0, "Insufficient Balance");
+    //     payable(TREASURY).transfer(address(this).balance);
+    // }
+
+    // receive() external payable {}
 }

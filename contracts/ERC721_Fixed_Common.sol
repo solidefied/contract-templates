@@ -9,12 +9,10 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract ERC721_Fixed_Common is ERC721, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
     using Counters for Counters.Counter;
     using Strings for uint256;
-    Counters.Counter private _tokenIdCounter;
-
-    uint public TOKEN_SUPPLY;
+    Counters.Counter private  _tokenIdCounter;
+    uint256 public TOKEN_SUPPLY;
     address TREASURY;
     string public baseURI;
 
@@ -32,11 +30,21 @@ contract ERC721_Fixed_Common is ERC721, AccessControl {
         baseURI = _baseUri;
     }
 
-    function mintToken(address to) external onlyRole(MINTER_ROLE) {
+    function mint(address to) external onlyRole(MINTER_ROLE) {
         uint256 tokenId = _tokenIdCounter.current();
         require(tokenId < TOKEN_SUPPLY, "Limit Reached");
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
+    }
+
+    function bulkMint(address _receiver,uint256 _quantity) external onlyRole(MINTER_ROLE)
+    {
+        for(uint i = 0 ;i < _quantity ; i++)
+        {
+            require(tokenMinted() < TOKEN_SUPPLY,"Limit Reached");
+            _tokenIdCounter.increment();
+            _safeMint(_receiver, tokenMinted());
+        }
     }
 
     // to set or update total token supply
