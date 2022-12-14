@@ -57,7 +57,7 @@ contract NFTSale is ReentrancyGuard, Ownable, Pausable {
     address public TREASURY = msg.sender; //replace in prod
     address public USDT;
     bytes32 public root;
-
+    mapping (address => uint256) public purchasedCount;
     constructor(
         // uint256 _priceInWei,
         uint256 _hardcap,
@@ -145,7 +145,8 @@ contract NFTSale is ReentrancyGuard, Ownable, Pausable {
     {
         uint256 amount = (priceInUSD * 10**6) / CENTS;        
         require((((amount * quantity) + INonStandardERC20(USDT).balanceOf(address(this))) / amount ) <= hardcap ,"Exceed hardcap amount");
-        require((quantity + IERC721(nftAddress).balanceOf(msg.sender))  <= userMaxAllowance,"Exceed allowance");
+        require(( purchasedCount[msg.sender]) + quantity  <= userMaxAllowance,"Exceed allowance");
+        purchasedCount[msg.sender] = quantity;
         _transferTokensIn(USDT, msg.sender, amount * quantity);
         IERC721(nftAddress).bulkMint(msg.sender,quantity);
     }
