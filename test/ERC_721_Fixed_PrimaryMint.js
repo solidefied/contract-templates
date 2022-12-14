@@ -34,7 +34,7 @@ describe("Governance Sale", () => {
         NFT = await nftContract.deploy(acc1.address, "TOKEN.TEST.xyz", 80, "TEST-NFT", "TNFT");
         await NFT.deployed();
         const nftsaleContract = await ethers.getContractFactory("NFTSale");
-        SALE = await nftsaleContract.deploy(80, 40, 2, NFT.address, USDT.address, root);
+        SALE = await nftsaleContract.deploy(80, 40, 2000, NFT.address, USDT.address, root);
         await SALE.deployed();
         const checkSetToTrue = await SALE.connect(acc1).setWhitelist(true);
         await checkSetToTrue.wait();
@@ -82,11 +82,11 @@ describe("Governance Sale", () => {
 
     describe("set new USD price ", () => {
         before("setter func", async () => {
-            const setNewUSDPrice = await SALE.connect(acc1).setPriceUSD(4);
+            const setNewUSDPrice = await SALE.connect(acc1).setPriceUSD(4000);
             await setNewUSDPrice.wait();
         })
         it("Test that,NFT is Purchased by acc4", async () => {
-            expect(await SALE.priceInUSD()).to.equal(4 * 10**4)
+            expect(await SALE.priceInUSD()).to.equal(ethers.BigNumber.from(10).pow(6).mul(4))
         })
     })
 

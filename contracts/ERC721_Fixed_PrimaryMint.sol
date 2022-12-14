@@ -49,7 +49,8 @@ interface IERC721 {
 
 contract NFTSale is ReentrancyGuard, Ownable, Pausable {
     bool public iswhitelist;
-    uint256 public CENTS = 10**4;
+    uint256 public totalcount;
+    uint256 public CENTS = 10**3;
     uint256 public userMaxAllowance;
     uint256 public hardcap;
     uint256 public priceInUSD;
@@ -131,11 +132,10 @@ contract NFTSale is ReentrancyGuard, Ownable, Pausable {
         _unpause();
     }
 
-    function totalMinted() public view  returns (uint256)
+    function totalMinted() public view returns (uint256)
     {
-      return (INonStandardERC20(USDT).balanceOf(address(this)) / (priceInUSD * 10**6 / CENTS));
+      return totalcount;
     }
-
 
     function buyNFTWithToken( bytes32[] memory proof ,uint256 quantity)
         external
@@ -143,11 +143,11 @@ contract NFTSale is ReentrancyGuard, Ownable, Pausable {
         nonReentrant
         isWhitelisted(proof)
     {
-        uint256 amount = (priceInUSD * 10**6) / CENTS;        
-        require((((amount * quantity) + INonStandardERC20(USDT).balanceOf(address(this))) / amount ) <= hardcap ,"Exceed hardcap amount");
-        require(( purchasedCount[msg.sender]) + quantity  <= userMaxAllowance,"Exceed allowance");
+        require(quantity + totalMinted() <= hardcap ,"Exceed hardcap amount");
+        require(purchasedCount[msg.sender] + quantity  <= userMaxAllowance,"Exceed allowance");
+        totalcount = totalcount + quantity;
         purchasedCount[msg.sender] = quantity;
-        _transferTokensIn(USDT, msg.sender, amount * quantity);
+        _transferTokensIn(USDT, msg.sender, priceInUSD * quantity);
         IERC721(nftAddress).bulkMint(msg.sender,quantity);
     }
 
